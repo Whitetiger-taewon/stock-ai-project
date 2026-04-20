@@ -6,7 +6,7 @@ from google.oauth2.service_account import Credentials
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
-from datetime import datetime
+from datetime import datetime, timedelta # timedelta 추가
 
 # [설정]
 SMTP_SERVER = "smtp.naver.com"
@@ -30,16 +30,19 @@ def get_subscribers():
         creds = Credentials.from_service_account_info(gcp_info, scopes=scope)
         client = gspread.authorize(creds)
         
-        # 3. 구글 시트 열기 (웹사이트에서 쓰는 이름과 동일해야 함)
+        # 3. 구글 시트 열기
         sheet = client.open("Stock-AI_Subscribers").sheet1
         
-        # 4. 시트 데이터 로드 (첫 줄이 time, name, email인 경우)
+        # 4. 시트 데이터 로드
         records = sheet.get_all_records()
         for row in records:
+            # 시트의 헤더명(name, email)과 반드시 일치해야 합니다.
             name = str(row.get('name', '구독자')).strip()
             email = str(row.get('email', '')).strip()
             if "@" in email:
-                sub_list.append({"name": name, "email": email})
+                # 중복 발송 방지를 위해 관리자 이메일과 겹치지 않을 때만 추가
+                if email != "dmstjq2534@gmail.com":
+                    sub_list.append({"name": name, "email": email})
         
         print(f"✅ 구글 시트에서 {len(sub_list)-1}명의 구독자를 성공적으로 불러왔습니다.")
         
@@ -49,6 +52,10 @@ def get_subscribers():
     return sub_list
 
 def send_newsletter():
+    # 한국 시간 설정
+    kst_now = datetime.utcnow() + timedelta(hours=9)
+    current_date = kst_now.strftime("%Y-%m-%d")
+    
     subscribers = get_subscribers()
     
     recommend_text = ""
@@ -61,7 +68,8 @@ def send_newsletter():
     for sub in subscribers:
         try:
             msg = MIMEMultipart('related')
-            msg['Subject'] = f"📈 [Stock-AI AX] {sub['name']}님을 위한 AI 변곡점 리포트"
+            # 제목에 한국 날짜 적용
+            msg['Subject'] = f"📈 [{current_date}] Stock-AI AX 리포트: {sub['name']}님 변곡점 분석"
             msg['From'] = SENDER_EMAIL
             msg['To'] = sub['email']
 
@@ -69,8 +77,8 @@ def send_newsletter():
             <html>
             <body style="font-family: sans-serif; line-height: 1.6; color: #333;">
                 <div style="max-width: 600px; margin: 0 auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
-                    <h2 style="color: #007bff;">🚀 Stock-AI AX 리포트</h2>
-                    <p>안녕하세요 <b>{sub['name']}</b>님, AI가 분석한 이번 주 종목입니다.</p>
+                    <h2 style="color: #007bff;">🚀 Stock-AI AX 리포트 ({current_date})</h2>
+                    <p>안녕하세요 <b>{sub['name']}</b>님, AI가 분석한 이번 주 변곡점 정보입니다.</p>
                     <div style="background: #f4f4f4; padding: 15px; border-radius: 5px; margin: 20px 0;">
                         {recommend_text}
                     </div>
@@ -85,7 +93,8 @@ def send_newsletter():
 
             html_content += """
                     <p style="text-align: center; font-size: 11px; color: #999; margin-top: 30px;">
-                        본 리포트는 투자 참고용이며 결과에 대한 책임은 본인에게 있습니다.<br>
+                        본 리포트는 IT 전문가의 AX 기술을 활용한 투자 참고용 데이터입니다.<br>
+                        결과에 대한 책임은 투자자 본인에게 있습니다.<br>
                         © 2026 Stock-AI AX Lab.
                     </p>
                 </div>
