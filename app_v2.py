@@ -83,14 +83,26 @@ st.divider()
 
 # C. 이번 주 추천 미리보기 & 구독 섹션
 col_left, col_right = st.columns([1.5, 1])
+
 with col_left:
-    st.subheader("🎯 이번 주 AI 분석 TOP 3 (미리보기)")
-    new_data = [
-        {"종목명": "두산에너빌리티", "현재가": "93,600", "AI 타점": "103,488", "상태": "상승3파 진입"},
-        {"종목명": "삼성SDI", "현재가": "470,500", "AI 타점": "476,371", "상태": "강력 추세"},
-        {"종목명": "한화오션", "현재가": "119,300", "AI 타점": "119,300", "상태": "타점 도달"}
-    ]
-    st.dataframe(pd.DataFrame(new_data), use_container_width=True)
+    st.subheader("🎯 이번 주 AI 분석 TOP 3 (실시간)")
+    
+    # [수정] 파일에서 실시간 분석 결과 읽어오기
+    try:
+        if os.path.exists("recommend_results.txt"):
+            with open("recommend_results.txt", "r", encoding="utf-8") as f:
+                rec_content = f.read()
+            
+            # 텍스트 내용을 보기 좋게 출력 (데이터프레임 형태가 아니라면 바로 st.write)
+            st.info("현재 AI 엔진이 분석한 최신 타점 정보입니다.")
+            st.markdown(f"```text\n{rec_content}\n```")
+        else:
+            # 파일이 없을 때 보여줄 기본 예시 (혹은 안내 문구)
+            st.warning("현재 신규 리포트를 생성 중입니다. 잠시만 기다려주세요.")
+            st.write("기본 분석 대상: 두산에너빌리티, 삼성SDI, 한화오션 등")
+    except Exception as e:
+        st.error(f"데이터 로드 중 오류: {e}")
+        
     st.caption("💡 매주 월요일 아침, 상세 차트 분석 리포트가 발송됩니다.")
 
 with col_right:
