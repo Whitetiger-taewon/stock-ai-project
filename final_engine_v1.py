@@ -4,7 +4,18 @@ import pandas as pd
 from datetime import datetime, timedelta
 import time
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 import os
+
+# 리눅스 서버에 설치된 나눔 폰트 경로 지정
+font_path = '/usr/share/fonts/truetype/nanum/NanumBarunGothic.ttf'
+font_prop = fm.FontProperties(fname=font_path)
+
+# 전역 폰트 설정
+plt.rc('font', family='NanumBarunGothic')
+
+# 마이너스 기호 깨짐 방지
+plt.rcParams['axes.unicode_minus'] = False
 
 # RSI 지표 계산 함수 (고도화 단계: 기술적 분석 강화)
 def calculate_rsi(df, period=14):
