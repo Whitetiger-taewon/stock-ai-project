@@ -2,9 +2,8 @@ name: Weekly Stock Report Sender
 
 on:
   schedule:
-    # 매주 월요일 아침 8시(한국시간) 실행 (UTC 23:00)
     - cron: '0 23 * * 0' 
-  workflow_dispatch: # 수동 실행 버튼 활성화
+  workflow_dispatch:
 
 jobs:
   send-email:
@@ -17,19 +16,17 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+          cache: 'pip' # ✨ 매직 키워드: 설치된 라이브러리를 캐싱합니다.
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # 엔진과 메일 발송에 필요한 모든 도구 설치
-          pip install finance-datareader pandas scipy plotly
+          # 필요한 것만 최소화해서 설치 (plotly 제외 등)
+          pip install finance-datareader pandas scipy 
 
       - name: Run AI Engine and Send Email
         env:
           SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
         run: |
-          # 1순위: AI 엔진을 돌려 추천 종목 파일(recommend_results.txt) 생성
           python final_engine_v1.py
-          
-          # 2순위: 생성된 파일을 읽어 메일 발송
           python email_test.py
