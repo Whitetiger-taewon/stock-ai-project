@@ -5,8 +5,9 @@ on:
     - cron: '0 23 * * 0' 
   workflow_dispatch:
 
-# ✨ 핵심: 모든 액션이 Node.js 24 기반으로 동작하도록 강제 설정
+# 1. 최상단에 이 설정을 배치하여 경고를 억제합니다.
 env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
