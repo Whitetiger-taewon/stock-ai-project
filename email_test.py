@@ -7,6 +7,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
 from datetime import datetime, timedelta # timedelta 추가
+from email.utils import formataddr
 
 # [설정]
 SMTP_SERVER = "smtp.naver.com"
@@ -70,7 +71,7 @@ def send_newsletter():
             msg = MIMEMultipart('related')
             # 제목에 한국 날짜 적용
             msg['Subject'] = f"[Stock-AI AX] {current_date} 리포트: {sub['name']}님 변곡점 분석결과"
-            msg['From'] = SENDER_EMAIL
+            msg['From'] = formataddr(("AI 주식 분석엔지니어", SENDER_EMAIL))
             msg['To'] = sub['email']
 
             html_content = f"""
