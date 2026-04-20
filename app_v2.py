@@ -1,4 +1,5 @@
 import json
+import re
 import streamlit as st
 import FinanceDataReader as fdr
 import pandas as pd
@@ -12,24 +13,30 @@ st.set_page_config(page_title="Stock-AI AX: AI 파동 분석 리포트", layout=
 # --- 추가된 구글 시트 저장 함수 ---
 def save_to_google_sheet(name, email):
     try:
-        # 1. 인증에 필요한 권한(Scope) 설정
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
         
-        # 2. Secrets에서 통째로 저장된 JSON 문자열을 딕셔너리로 변환
-        # (이 방식이 PEM 에러를 피하는 가장 확실한 방법입니다)
-        service_account_info = json.loads(st.secrets["gcp_service_account_json"])
+        # 1. Secrets에서 raw 문자열 가져오기
+        raw_json = st.secrets["gcp_service_account_json"]
         
-        # 3. 구글 인증 진행
+        # 2. [핵심] 제어 문자 및 불필요한 공백 제거 (Clean up)
+        # JSON 문법을 해치는 보이지 않는 문자들을 정규식으로 청소합니다.
+        clean_json = re.sub(r'[\x00-\x1F\x7F]', '', raw_json) 
+        
+        # 3. 만약 위 방법으로도 안 된다면? 양끝 공백만 제거하고 시도
+        try:
+            service_account_info = json.loads(clean_json)
+        except:
+            # 줄바꿈(\n)은 살려야 하는 경우가 있으니 2차 시도
+            service_account_info = json.loads(raw_json.strip())
+        
+        # 4. 인증 및 시트 기록
         creds = Credentials.from_service_account_info(service_account_info, scopes=scope)
         client = gspread.authorize(creds)
-        
-        # 4. 시트 열기 및 데이터 기록
         sheet = client.open("Stock-AI_Subscribers").sheet1
         sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), name, email])
         return True
         
     except Exception as e:
-        # 에러가 나면 화면에 어떤 에러인지 정확히 찍어줍니다.
         st.error(f"시트 연동 에러 상세: {e}")
         return False
 
