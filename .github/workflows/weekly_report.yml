@@ -23,7 +23,8 @@ jobs:
           python -m pip install --upgrade pip
           # 꼭 필요한 라이브러리만 설치합니다.
           pip install finance-datareader pandas scipy
-
+          pip install -r requirements.txt  # 👈 이 줄이 지시서를 읽고 설치하는 핵심입니다!
+          
       - name: Run AI Engine and Send Email
         env:
           SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
