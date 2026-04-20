@@ -69,7 +69,7 @@ def send_newsletter():
         try:
             msg = MIMEMultipart('related')
             # 제목에 한국 날짜 적용
-            msg['Subject'] = f"📈 [{current_date}] Stock-AI AX 리포트: {sub['name']}님 변곡점 분석"
+            msg['Subject'] = f"[Stock-AI AX] {current_date} 리포트: {sub['name']}님 변곡점 분석
             msg['From'] = SENDER_EMAIL
             msg['To'] = sub['email']
 
