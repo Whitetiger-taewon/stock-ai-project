@@ -5,9 +5,8 @@ on:
     - cron: '0 23 * * 0' 
   workflow_dispatch:
 
-# 1. 최상단에 이 설정을 배치하여 경고를 억제합니다.
+# 1. 헷갈리지 않게 딱 하나의 방향(Node.js 24 강제)만 지정합니다.
 env:
-  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
