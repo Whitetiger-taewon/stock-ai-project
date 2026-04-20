@@ -4,3 +4,5 @@ pandas
 scipy
 plotly
 matplotlib
+gspread   
+google-auth
