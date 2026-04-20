@@ -1,3 +1,4 @@
+import json
 import streamlit as st
 import FinanceDataReader as fdr
 import pandas as pd
@@ -11,21 +12,25 @@ st.set_page_config(page_title="Stock-AI AX: AI 파동 분석 리포트", layout=
 # --- 추가된 구글 시트 저장 함수 ---
 def save_to_google_sheet(name, email):
     try:
-        # 1. Streamlit Secrets에서 자격 증명 읽기
+        # 1. 인증에 필요한 권한(Scope) 설정
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-        # Secrets에 설정한 [gcp_service_account] 항목을 불러옵니다.
-        creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
+        
+        # 2. Secrets에서 통째로 저장된 JSON 문자열을 딕셔너리로 변환
+        # (이 방식이 PEM 에러를 피하는 가장 확실한 방법입니다)
+        service_account_info = json.loads(st.secrets["gcp_service_account_json"])
+        
+        # 3. 구글 인증 진행
+        creds = Credentials.from_service_account_info(service_account_info, scopes=scope)
         client = gspread.authorize(creds)
         
-        # 2. 구글 시트 열기 (본부장님이 만드신 시트 이름과 정확히 일치해야 함)
-        # 주의: 서비스 계정 이메일을 이 시트에 '편집자'로 공유하셨어야 합니다.
+        # 4. 시트 열기 및 데이터 기록
         sheet = client.open("Stock-AI_Subscribers").sheet1
-        
-        # 3. 데이터 추가 (날짜, 성함, 이메일)
         sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), name, email])
         return True
+        
     except Exception as e:
-        st.error(f"시트 연동 에러: {e}")
+        # 에러가 나면 화면에 어떤 에러인지 정확히 찍어줍니다.
+        st.error(f"시트 연동 에러 상세: {e}")
         return False
 
 # 1. 데이터 로딩 자동화 (기존 유지)
