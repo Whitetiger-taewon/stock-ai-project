@@ -2,7 +2,7 @@ name: Weekly Stock Report Sender
 
 on:
   schedule:
-    # 매주 월요일 아침 8시(한국시간) 실행
+    # 매주 월요일 아침 8시(한국시간) 실행 (UTC 23:00)
     - cron: '0 23 * * 0' 
   workflow_dispatch: # 수동 실행 버튼 활성화
 
@@ -11,20 +11,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4 # 최신 버전으로 업데이트
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5 # 최신 버전으로 업데이트
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install finance-datareader pandas
-          # email_test.py에서 쓰는 다른 라이브러리가 있다면 여기에 추가하세요.
+          # 엔진과 메일 발송에 필요한 모든 도구 설치
+          pip install finance-datareader pandas scipy plotly
 
-      - name: Run email script
+      - name: Run AI Engine and Send Email
         env:
           SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
-        run: python email_test.py
+        run: |
+          # 1순위: AI 엔진을 돌려 추천 종목 파일(recommend_results.txt) 생성
+          python final_engine_v1.py
+          
+          # 2순위: 생성된 파일을 읽어 메일 발송
+          python email_test.py
