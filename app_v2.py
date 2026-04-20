@@ -1,5 +1,6 @@
 import json
 import re
+import os
 import streamlit as st
 import FinanceDataReader as fdr
 import pandas as pd
