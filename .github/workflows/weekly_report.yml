@@ -5,6 +5,10 @@ on:
     - cron: '0 23 * * 0' 
   workflow_dispatch:
 
+# ✨ 핵심: 모든 액션이 Node.js 24 기반으로 동작하도록 강제 설정
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   send-email:
     runs-on: ubuntu-latest
@@ -16,12 +20,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip' # ✨ 매직 키워드: 설치된 라이브러리를 캐싱합니다.
+          cache: 'pip'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # 필요한 것만 최소화해서 설치 (plotly 제외 등)
           pip install finance-datareader pandas scipy 
 
       - name: Run AI Engine and Send Email
