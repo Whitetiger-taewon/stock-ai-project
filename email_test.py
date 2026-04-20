@@ -1,6 +1,8 @@
 import smtplib
 import os
-import pandas as pd
+import json
+import gspread
+from google.oauth2.service_account import Credentials
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
@@ -13,15 +15,37 @@ SENDER_EMAIL = "dmstjq2534@naver.com"
 SENDER_PASSWORD = os.environ.get('SENDER_PASSWORD') 
 
 def get_subscribers():
+    # 1. 기본 관리자 리스트 (항상 본부장님께는 가도록 설정)
     sub_list = [{"name": "본부장님(관리자)", "email": "dmstjq2534@gmail.com"}]
-    if os.path.exists("subscribers.csv"):
-        try:
-            df = pd.read_csv("subscribers.csv", names=['time', 'name', 'email'], header=None)
-            for _, row in df.iterrows():
-                if pd.notnull(row['email']) and "@" in str(row['email']):
-                    sub_list.append({"name": str(row['name']), "email": str(row['email']).strip()})
-        except:
-            pass
+    
+    try:
+        # 2. GitHub Secrets에 저장한 JSON 키 로드
+        gcp_json = os.environ.get('GCP_SERVICE_ACCOUNT_JSON')
+        if not gcp_json:
+            print("⚠️ GCP_SERVICE_ACCOUNT_JSON 설정이 없습니다. 기본 리스트로 진행합니다.")
+            return sub_list
+            
+        gcp_info = json.loads(gcp_json)
+        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+        creds = Credentials.from_service_account_info(gcp_info, scopes=scope)
+        client = gspread.authorize(creds)
+        
+        # 3. 구글 시트 열기 (웹사이트에서 쓰는 이름과 동일해야 함)
+        sheet = client.open("Stock-AI_Subscribers").sheet1
+        
+        # 4. 시트 데이터 로드 (첫 줄이 time, name, email인 경우)
+        records = sheet.get_all_records()
+        for row in records:
+            name = str(row.get('name', '구독자')).strip()
+            email = str(row.get('email', '')).strip()
+            if "@" in email:
+                sub_list.append({"name": name, "email": email})
+        
+        print(f"✅ 구글 시트에서 {len(sub_list)-1}명의 구독자를 성공적으로 불러왔습니다.")
+        
+    except Exception as e:
+        print(f"❌ 구글 시트 로딩 중 에러 발생: {e}")
+        
     return sub_list
 
 def send_newsletter():
@@ -30,7 +54,6 @@ def send_newsletter():
     recommend_text = ""
     if os.path.exists("recommend_results.txt"):
         with open("recommend_results.txt", "r", encoding="utf-8") as f:
-            # 에러 방지: f-string 밖에서 미리 <br>로 변환해둡니다.
             recommend_text = f.read().replace('\n', '<br>')
 
     charts = [f for f in os.listdir() if f.startswith('chart_') and f.endswith('.png')]
@@ -42,7 +65,6 @@ def send_newsletter():
             msg['From'] = SENDER_EMAIL
             msg['To'] = sub['email']
 
-            # 에러가 났던 f-string 부분을 안전하게 구성
             html_content = f"""
             <html>
             <body style="font-family: sans-serif; line-height: 1.6; color: #333;">
@@ -73,7 +95,6 @@ def send_newsletter():
 
             msg.attach(MIMEText(html_content, 'html', 'utf-8'))
 
-            # 이미지 첨부 로직
             for i, chart_file in enumerate(charts):
                 with open(chart_file, 'rb') as f:
                     img = MIMEImage(f.read())
