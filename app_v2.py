@@ -11,43 +11,56 @@ from google.oauth2.service_account import Credentials
 # [설정] 페이지 기본 구성
 st.set_page_config(page_title="Stock-AI AX: AI 파동 분석 리포트", layout="wide")
 
-# --- 추가된 구글 시트 저장 함수 ---
+# --- 1. 유틸리티 함수 ---
+
+def get_past_targets():
+    """지난주 추천 종목 리스트를 파일에서 읽어옵니다."""
+    # 파일이 없을 때 보여줄 기본값 (초기 세팅용)
+    default_targets = {"000660": "SK하이닉스", "005380": "현대차", "035420": "NAVER"}
+    
+    try:
+        # 파일 형식 예: 000660:SK하이닉스,005380:현대차
+        if os.path.exists("past_recommend_results.txt"):
+            with open("past_recommend_results.txt", "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if content:
+                    target_dict = {}
+                    for item in content.split(','):
+                        code, name = item.split(':')
+                        target_dict[code.strip()] = name.strip()
+                    return target_dict
+    except Exception:
+        pass
+    return default_targets
+
 def save_to_google_sheet(name, email):
+    """구독자 정보를 구글 시트에 저장합니다."""
     try:
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-        
-        # 1. Secrets에서 raw 문자열 가져오기
         raw_json = st.secrets["gcp_service_account_json"]
-        
-        # 2. 제어 문자 및 불필요한 공백 제거
         clean_json = re.sub(r'[\x00-\x1F\x7F]', '', raw_json) 
         
-        # 3. JSON 로드 (안전하게 2단계로 시도)
         try:
             service_account_info = json.loads(clean_json)
         except Exception:
             service_account_info = json.loads(raw_json.strip())
         
-        # 4. 인증 및 시트 연결
         creds = Credentials.from_service_account_info(service_account_info, scopes=scope)
         client = gspread.authorize(creds)
         sheet = client.open("Stock-AI_Subscribers").sheet1
         
-        # 5. 한국 시간(KST) 계산 (UTC + 9시간)
         kst_now = datetime.utcnow() + timedelta(hours=9)
         now_str = kst_now.strftime("%Y-%m-%d %H:%M:%S")
         
-        # 6. 데이터 추가
         sheet.append_row([now_str, name, email])
         return True
-        
     except Exception as e:
-        st.error(f"시트 연동 에러 상세: {e}")
+        st.error(f"시트 연동 에러: {e}")
         return False
 
-# 1. 데이터 로딩 자동화
 @st.cache_data(ttl=3600)
 def fetch_real_data(codes):
+    """주식 종목의 실시간 수익률을 가져옵니다."""
     results = []
     kst_today = datetime.utcnow() + timedelta(hours=9)
     end_date = kst_today.strftime('%Y-%m-%d')
@@ -65,21 +78,28 @@ def fetch_real_data(codes):
             continue
     return results
 
-# --- UI 구현부 ---
+# --- 2. UI 구현부 ---
+
 st.title("🚀 Stock-AI AX")
 st.subheader("12년 IT 전문가의 인사이트와 AI의 결합, '진짜' 변곡점을 배달합니다.")
 st.write("단순한 종목 추천이 아닙니다. 엘리어트 파동과 RSI 필터링을 거친 AX 솔루션입니다.")
 st.divider()
 
-# B. 실시간 성과 대역
-st.subheader("📊 지난주 AI 추천 종목 실시간 수익률")
-past_targets = {"000660": "SK하이닉스", "005380": "현대차", "035420": "NAVER"}
+# B. 실시간 성과 대역 (지난주 추천 종목 기반)
+st.subheader("📊 지난주 AI 추천 종목 실시간 성과")
+past_targets = get_past_targets()
 real_perf = fetch_real_data(past_targets)
-cols = st.columns(len(real_perf))
-for i, item in enumerate(real_perf):
-    cols[i].metric(label=item['name'], 
-                   value=f"{item['curr']:,.0f}원", 
-                   delta=f"{item['change']:.2f}% (5거래일 대비)")
+
+if real_perf:
+    cols = st.columns(len(real_perf))
+    for i, item in enumerate(real_perf):
+        cols[i].metric(
+            label=item['name'], 
+            value=f"{item['curr']:,.0f}원", 
+            delta=f"{item['change']:.2f}% (지난 리포트 대비)"
+        )
+else:
+    st.info("성과 데이터를 불러오는 중입니다...")
 st.divider()
 
 # C. 이번 주 추천 미리보기 & 구독 섹션
@@ -88,23 +108,25 @@ col_left, col_right = st.columns([1.5, 1])
 with col_left:
     st.subheader("🎯 이번 주 AI 분석 TOP 3 (실시간)")
     
-    # [수정] 파일에서 실시간 분석 결과 읽어오기
-    try:
-        if os.path.exists("recommend_results.txt"):
+    if os.path.exists("recommend_results.txt"):
+        try:
             with open("recommend_results.txt", "r", encoding="utf-8") as f:
                 rec_content = f.read()
-            
-            # 텍스트 내용을 보기 좋게 출력 (데이터프레임 형태가 아니라면 바로 st.write)
-            st.info("현재 AI 엔진이 분석한 최신 타점 정보입니다.")
+            st.success("✅ 현재 AI 엔진이 분석한 최신 타점 정보입니다.")
             st.markdown(f"```text\n{rec_content}\n```")
-        else:
-            # 파일이 없을 때 보여줄 기본 예시 (혹은 안내 문구)
-            st.warning("현재 신규 리포트를 생성 중입니다. 잠시만 기다려주세요.")
-            st.write("기본 분석 대상: 두산에너빌리티, 삼성SDI, 한화오션 등")
-    except Exception as e:
-        st.error(f"데이터 로드 중 오류: {e}")
+        except Exception as e:
+            st.error(f"파일 읽기 오류: {e}")
+    else:
+        st.info("🔍 차기 리포트 분석 및 데이터 생성 중입니다.")
+        # 데이터 생성 전 보여줄 전문적인 테이블
+        upcoming_data = [
+            {"종목명": "두산에너빌리티", "상태": "데이터 수집", "예상타점": "계산 중"},
+            {"종목명": "삼성SDI", "상태": "RSI 필터링", "예상타점": "계산 중"},
+            {"종목명": "한화오션", "상태": "파동 분석", "예상타점": "계산 중"}
+        ]
+        st.table(pd.DataFrame(upcoming_data))
         
-    st.caption("💡 매주 월요일 아침, 상세 차트 분석 리포트가 발송됩니다.")
+    st.caption("💡 매주 월요일 아침, 상세 차트 분석 리포트가 구독자에게 발송됩니다.")
 
 with col_right:
     st.subheader("📩 리포트 무료 구독")
@@ -116,12 +138,12 @@ with col_right:
         if st.button("지금 바로 구독 신청", use_container_width=True):
             if u_name and u_email:
                 if save_to_google_sheet(u_name, u_email):
-                    st.success(f"🎉 {u_name}님, 구독 완료! 정보가 구글 시트에 안전하게 저장되었습니다.")
+                    st.success(f"🎉 {u_name}님, 구독 완료! 월요일 아침에 뵙겠습니다.")
                     st.balloons()
             else:
                 st.warning("정보를 모두 입력해주세요.")
 
 # D. 푸터
 kst_now = datetime.utcnow() + timedelta(hours=9)
-st.sidebar.info(f"📍 현재 위치: {kst_now.strftime('%Y-%m-%d %H:%M')} 기준 갱신 중")
+st.sidebar.info(f"📍 KST: {kst_now.strftime('%Y-%m-%d %H:%M')} 기준 갱신")
 st.sidebar.write("본 서비스는 **AX(AI Transformation)** 기술을 활용한 자산관리 보조 도구입니다.")
